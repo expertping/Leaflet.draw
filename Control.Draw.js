@@ -1,3 +1,7 @@
+L.Map.mergeOptions({
+	drawControl: false
+});
+
 L.Control.Draw = L.Control.extend({
 	options: {
 		position: 'topleft',
@@ -6,38 +10,58 @@ L.Control.Draw = L.Control.extend({
 		drawRectangle: true
 	},
 
+	handlers: {},
+
 	onAdd: function (map) {
 		var className = 'leaflet-control-draw',
 			container = L.DomUtil.create('div', className);
 
 		if (this.options.drawPolyline) {
+			this.handlers.polyline = new L.Polyline.Draw(map);
 			this._createButton(
 				'Draw a polyline',
 				className + '-polyline',
 				container,
-				map.polylineDraw.enable,
-				map.polylineDraw
+				this.handlers.polyline.enable,
+				this.handlers.polyline
 			);
+			this.handlers.polyline.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.drawPolygon) {
+			this.handlers.polygon = new L.Polygon.Draw(map);
 			this._createButton(
 				'Draw a polygon',
 				className + '-polygon',
 				container,
-				map.polygonDraw.enable,
-				map.polygonDraw
+				this.handlers.polygon.enable,
+				this.handlers.polygon
 			);
+			this.handlers.polygon.on('activated', this._disableInactiveModes, this);
 		}
 
 		if (this.options.drawRectangle) {
+			this.handlers.rectangle = new L.Rectangle.Draw(map);
 			this._createButton(
 				'Draw a rectangle',
 				className + '-rectangle',
 				container,
-				map.rectangleDraw.enable,
-				map.rectangleDraw
+				this.handlers.rectangle.enable,
+				this.handlers.rectangle
 			);
+			this.handlers.rectangle.on('activated', this._disableInactiveModes, this);
+		}
+
+		if (this.options.drawRectangle) {
+			this.handlers.marker = new L.Marker.Draw(map);
+			this._createButton(
+				'Add a marker',
+				className + '-marker',
+				container,
+				this.handlers.marker.enable,
+				this.handlers.marker
+			);
+			this.handlers.marker.on('activated', this._disableInactiveModes, this);
 		}
 		
 		return container;
@@ -54,6 +78,16 @@ L.Control.Draw = L.Control.extend({
 			.addListener(link, 'click', fn, context);
 
 		return link;
+	},
+
+	// Need to disable the drawing modes if user clicks on another without disabling the current mode
+	_disableInactiveModes: function () {
+		for (var i in this.handlers) {
+			// Check if is a property of this object and is enabled
+			if (this.handlers.hasOwnProperty(i) && this.handlers[i].enabled) {
+				this.handlers[i].disable();
+			}
+		}
 	}
 });
 

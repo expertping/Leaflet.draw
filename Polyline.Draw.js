@@ -7,9 +7,13 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 			className: 'leaflet-div-icon leaflet-editing-icon'
 		}),
 		guidelineDistance: 20,
-		polyStyles: {
+		shapeOptions: {
+			stroke: true,
 			color: '#f06eaa',
-			weight: 4
+			weight: 4,
+			opacity: 0.5,
+			fill: false,
+			clickable: true
 		}
 	},
 	
@@ -21,7 +25,7 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 			this._markerGroup = new L.LayerGroup();
 			this._map.addLayer(this._markerGroup);
 
-			this._poly = new L.Polyline([], this.options.polyStyles);
+			this._poly = new L.Polyline([], this.options.shapeOptions);
 
 			//TODO refactor: move cursor to styles
 			this._container.style.cursor = 'crosshair';
@@ -38,11 +42,6 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 		L.Handler.Draw.prototype.removeHooks.call(this);
 
 		this._cleanUpShape();
-
-		this._map.fire(
-			'draw:poly-created',
-			{ poly: new this.Poly(this._poly.getLatLngs(), this.options.polyStyles) }
-		);
 		
 		// remove markers from map
 		this._map.removeLayer(this._markerGroup);
@@ -59,6 +58,14 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 		L.DomEvent
 			.removeListener(this._container, 'mousemove', this._onMouseMove)
 			.removeListener(this._container, 'click', this._onClick);
+	},
+
+	_finishShape: function () {
+		this._map.fire(
+			'draw:poly-created',
+			{ poly: new this.Poly(this._poly.getLatLngs(), this.options.shapeOptions) }
+		);
+		this.disable();
 	},
 
 	_onMouseMove: function (e) {
@@ -101,12 +108,12 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 	_updateMarkerHandler: function () {
 		// The last marker shold have a click handler to close the polyline
 		if (this._markers.length > 1) {
-			this._markers[this._markers.length - 1].on('click', this.disable, this);
+			this._markers[this._markers.length - 1].on('click', this._finishShape, this);
 		}
 		
 		// Remove the old marker click handler (as only the last point should close the polyline)
 		if (this._markers.length > 2) {
-			this._markers[this._markers.length - 2].off('click', this.disable);
+			this._markers[this._markers.length - 2].off('click', this._finishShape);
 		}
 	},
 	
@@ -145,6 +152,7 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 
 			//add guide dash to guide container
 			dash = L.DomUtil.create('div', 'leaflet-draw-guide-dash', this._guidesContainer);
+			dash.style.backgroundColor = this.options.shapeOptions.color;
 
 			L.DomUtil.setPosition(dash, dashPoint);
 		}
@@ -192,7 +200,7 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 
 	_cleanUpShape: function () {
 		if (this._markers.length > 0) {
-			this._markers[this._markers.length - 1].off('click', this.disable);
+			this._markers[this._markers.length - 1].off('click', this._finishShape);
 		}
 	},
 
@@ -205,5 +213,3 @@ L.Polyline.Draw = L.Handler.Draw.extend({
 		}
 	}
 });
-
-L.Map.addInitHook('addHandler', 'polylineDraw', L.Polyline.Draw);

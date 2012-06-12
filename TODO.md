@@ -1,5 +1,3 @@
- - ability to change colour
- - add support for esc = cancel
- - use distance instead of lat/lng
- - add in marker
+ - Update documentation
+ - use distance instead of lat/lng (still need to do area, can't for polygons with line segments that cross)
  - add a demo page
