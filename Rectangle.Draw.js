@@ -1,4 +1,17 @@
 L.Rectangle.Draw = L.Handler.Draw.extend({
+	options: {
+		shapeOptions: {
+			stroke: true,
+			color: '#f06eaa',
+			weight: 4,
+			opacity: 0.5,
+			fill: true,
+			fillColor: null, //same as color by default
+			fillOpacity: 0.2,
+			clickable: true
+		}
+	},
+
 	addHooks: function () {
 		L.Handler.Draw.prototype.addHooks.call(this);
 		if (this._map) {
@@ -21,21 +34,18 @@ L.Rectangle.Draw = L.Handler.Draw.extend({
 			//TODO refactor: move cursor to styles
 			this._container.style.cursor = '';
 
-			this._pane.removeChild(this._box);
-			delete this._box;
-
 			L.DomEvent
 				.removeListener(this._container, 'mousedown', this._onMouseDown)
 				.removeListener(document, 'mousemove', this._onMouseMove)
 				.removeListener(document, 'mouseup', this._onMouseUp);
 
-			this._map.fire(
-				'draw:rectangle-created',
-				{
-					rect: new L.Rectangle(new L.LatLngBounds(this._startLatLng, this._endLatLng), { color: '#f06eaa', weight: 4 })
-				}
-			);
+			// If the box element doesn't exist they must not have moved the mouse, so don't need to destroy/return
+			if (this._rect) {
+				this._map.removeLayer(this._rect);
+				delete this._rect;
+			}
 		}
+		this._isDrawing = false;
 	},
 
 	_onMouseDown: function (e) {
@@ -53,46 +63,30 @@ L.Rectangle.Draw = L.Handler.Draw.extend({
 	},
 
 	_onMouseMove: function (e) {
-		var layerPoint = this._map.mouseEventToLayerPoint(e);
+		var layerPoint = this._map.mouseEventToLayerPoint(e),
+			latlng = this._map.mouseEventToLatLng(e);
 
 		this._updateLabelPosition(layerPoint);
 
 		if (this._isDrawing) {
-			this._drawRectangle(layerPoint);
+			this._updateLabelPosition(layerPoint);
+			if (!this._rect) {
+				this._rect = new L.Rectangle(new L.LatLngBounds(this._startLatLng, latlng), this.options.shapeOptions);
+				this._map.addLayer(this._rect);
+			} else {
+				this._rect.setBounds(new L.LatLngBounds(this._startLatLng, latlng));
+			}
 		}
 	},
 
 	_onMouseUp: function (e) {
 		this._endLatLng = this._map.mouseEventToLatLng(e);
-
-		this._isDrawing = false;
+		
+		this._map.fire(
+			'draw:rectangle-created',
+			{ rect: new L.Rectangle(new L.LatLngBounds(this._startLatLng, this._endLatLng), this.options.shapeOptions) }
+		);
 		
 		this.disable();
-	},
-
-	_drawRectangle: function (layerPoint) {
-		var offset = layerPoint.subtract(this._startLayerPoint),
-			newPos = new L.Point(
-				Math.min(layerPoint.x, this._startLayerPoint.x),
-				Math.min(layerPoint.y, this._startLayerPoint.y));
-
-		this._updateLabelPosition(layerPoint);
-
-		if (!this._box) {
-			this._box = L.DomUtil.create('div', 'leaflet-draw-rectangle', this._pane);
-		}
-
-		// hack the position of the div as in html land the top left is the top left of the border,
-		// where as in svg world the top left seems to be the middle of the border?? (2 = border width / 2)
-		newPos.x -= 2;
-		newPos.y -= 2;
-
-		L.DomUtil.setPosition(this._box, newPos);
-
-		// TODO refactor: remove hardcoded 4 pixels (is not border width * 2 as the svg issue commented above)
-		this._box.style.width  = (Math.abs(offset.x) - 4) + 'px';
-		this._box.style.height = (Math.abs(offset.y) - 4) + 'px';
 	}
 });
-
-L.Map.addInitHook('addHandler', 'rectangleDraw', L.Rectangle.Draw);

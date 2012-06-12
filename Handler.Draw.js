@@ -1,25 +1,39 @@
 L.Handler.Draw = L.Handler.extend({
-	initialize: function (map, options) {
+	includes: L.Mixin.Events,
+
+	initialize: function (map, shapeOptions) {
 		this._map = map;
 		this._container = map._container;
 		this._pane = map._panes.overlayPane;
 
-		L.Util.setOptions(this, options);
+		// Extend the shape options to include any customer parameters
+		this.options.shapeOptions = L.Util.extend({}, this.options.shapeOptions, shapeOptions);
+	},
+
+	enable: function () {
+		this.fire('activated');
+		L.Handler.prototype.enable.call(this);
 	},
 	
 	addHooks: function () {
 		if (this._map) {
 			L.DomUtil.disableTextSelection();
+
 			this._label = L.DomUtil.create('div', 'leaflet-draw-label', this._pane);
 			this._singleLineLabel = false;
+
+			L.DomEvent.addListener(window, 'keyup', this._cancelDrawing, this);
 		}
 	},
 
 	removeHooks: function () {
 		if (this._map) {
 			L.DomUtil.enableTextSelection();
+
 			this._pane.removeChild(this._label);
 			delete this._label;
+
+			L.DomEvent.removeListener(window, 'keyup', this._cancelDrawing);
 		}
 	},
 
@@ -43,5 +57,12 @@ L.Handler.Draw = L.Handler.extend({
 
 	_updateLabelPosition: function (pos) {
 		L.DomUtil.setPosition(this._label, pos);
+	},
+
+	// Cancel drawing when the escape key is pressed
+	_cancelDrawing: function (e) {
+		if (e.keyCode === 27) {
+			this.disable();
+		}
 	}
 });
